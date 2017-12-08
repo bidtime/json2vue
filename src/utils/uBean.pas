@@ -1,4 +1,4 @@
-unit uBean;
+﻿unit uBean;
 
 interface
 
@@ -109,37 +109,92 @@ procedure TBean.setContent(const strs: TStrings);
 
   end;
 
+  function getRightStr(const S: string; const sub: string): string;
+  var n: integer;
+  begin
+    n := S.IndexOf(sub);
+    if (n>=0) then begin
+      Result := S.Substring(n+sub.Length);
+    end else begin
+      Result := '';
+    end;
+  end;
+
+  function getRightStr2(const S: string; const sub: string; var str: string): boolean;
+  var n: integer;
+  begin
+    n := S.IndexOf(sub);
+    if (n>=0) then begin
+      str := S.Substring(n+sub.Length).Trim;
+      Result := true;
+    end else begin
+      str := S.Trim;
+      Result := false;
+    end;
+  end;
+
+  function getCommentOfChar(const S: string; const sub: string; var str: string): boolean;
+  var getComment: boolean;
+    tmp: string;
+  begin
+    getComment := getRightStr2(S, sub, tmp);
+    if getComment and (not tmp.isEmpty()) then begin
+      Result := true;
+    end else begin
+      Result := false;
+    end;
+  end;
+
 var i: integer;
-  S, line, comment: string;
-  hitComment: integer;
+  line, S, tmp, comment: string;
+  hitComment: boolean;
+  bIdxStr: boolean;
+  bHitClass: boolean;
 begin
-  hitComment := -1;
+  hitComment := false;
+  bHitClass := false;
   for I := 0 to strs.Count - 1 do begin
     line := strs[I].Trim;
-    doOnLine(line);
-    if (line.StartsWith('public class')) then begin
+    S := line.Trim;
+    //doOnLine(S);
+    if (S.StartsWith('public class'))
+        or (S.StartsWith('private class'))
+          or (S.StartsWith('protected class')) then begin
+      bHitClass := true;
       doOnLine('class begin...');
-    end else if (line.StartsWith('}')) then begin
-      doOnLine('class end.');
+    //end else if (S.StartsWith('}')) then begin
     end else begin
-      if (S.StartsWith('//')) then begin
-        // getCommentOfSlash();
+      if not bHitClass then begin
+        continue;
+      end;
+      doOnLine(S);
+      //
+      if (S.StartsWith('//')) then begin              //hit comment
+        comment := getRightStr(S, '//');
       end else begin
-        if hitComment=0 then begin
-          if (S.StartsWith('*')) then begin
-            //comment := '';
-            //if not comment.isEmpty() then begin
-            // hiComment := 1;
-            // continue;
-            //end
+        if (S.StartsWith('/*')) then begin            //hit comment begin
+          bIdxStr := getCommentOfChar(S, '/*', tmp);
+          if bIdxStr then begin
+            hitComment := false;
+            continue;
+          end else begin
+            hitComment := true;
           end;
-        end else begin
-        end;
-
-        if (S.StartsWith('/*')) then begin
-         hitComment := 0;
+        end else if (S.StartsWith('*')) then begin
+          if hitComment then begin
+            bIdxStr := getCommentOfChar(S, '*', tmp);
+            if bIdxStr then begin
+              hitComment := false;
+              continue;
+            end else begin
+              hitComment := true;
+            end;
+          end;
+        end else if (S.StartsWith('*/')) then begin   //hit comment end
+          hitComment := false;
         end else if (S.StartsWith('*/')) then begin
-          hitComment := 1;
+        end else begin
+
         end;
       end;
     end;

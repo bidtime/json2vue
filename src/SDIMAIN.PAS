@@ -5,7 +5,7 @@ interface
 uses Winapi.Windows, System.Classes, Vcl.Graphics, Vcl.Forms, Vcl.Controls,
   Vcl.Menus, Vcl.Dialogs, Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls, Vcl.ComCtrls,
   Vcl.ImgList, Vcl.StdActns, Vcl.ActnList, Vcl.ToolWin, System.ImageList,
-  System.Actions, uBean, FireDAC.VCLUI.Memo;
+  System.Actions, uParserQuery, FireDAC.VCLUI.Memo;
 
 type
   TSDIAppForm = class(TForm)
@@ -48,7 +48,7 @@ type
     actSetting: TAction;
     ToolButton7: TToolButton;
     ToolButton8: TToolButton;
-    actDoIt: TAction;
+    actQuery: TAction;
     Panel2: TPanel;
     GroupBox2: TGroupBox;
     FDGUIxFormsMemo2: TFDGUIxFormsMemo;
@@ -62,6 +62,13 @@ type
     GroupBox4: TGroupBox;
     FDGUIxFormsMemo4: TFDGUIxFormsMemo;
     Splitter4: TSplitter;
+    ToolButton10: TToolButton;
+    actInsert: TAction;
+    actUpdate: TAction;
+    actDelete: TAction;
+    ToolButton11: TToolButton;
+    ToolButton12: TToolButton;
+    ToolButton13: TToolButton;
     procedure FileNew1Execute(Sender: TObject);
     procedure FileOpen1Execute(Sender: TObject);
     procedure FileSave1Execute(Sender: TObject);
@@ -70,15 +77,16 @@ type
     procedure actSettingExecute(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
-    procedure actDoItExecute(Sender: TObject);
+    procedure actQueryExecute(Sender: TObject);
   private
     { Private declarations }
-    FBean: TBean;
+    FParserQuery: TParserQuery;
     //
     procedure showLog(const S: string);
     procedure doOnLine(const S: string);
-    procedure doOnValidLine(const S: string);
+    procedure doResultLine(const S: string);
     procedure showStatus(const S: string);
+    procedure showResult(const S: string);
   public
     { Public declarations }
   end;
@@ -109,20 +117,24 @@ end;
 
 procedure TSDIAppForm.FormCreate(Sender: TObject);
 begin
-  FBean := TBean.Create;
-  FBean.OnLine := doOnLine;
-  FBean.OnValidLine := doOnValidLine;
+  FParserQuery := TParserQuery.Create;
+  FParserQuery.initial('');
+  FParserQuery.OnLine := doOnLine;
+  FParserQuery.OnResultLine := doResultLine;
 //  self.WindowState := wsMaximized;
 end;
 
 procedure TSDIAppForm.FormDestroy(Sender: TObject);
 begin
-  FBean.Free;
+  FParserQuery.Free;
 end;
 
-procedure TSDIAppForm.actDoItExecute(Sender: TObject);
+procedure TSDIAppForm.actQueryExecute(Sender: TObject);
 begin
-  FBean.Context := self.FDGUIxFormsMemo1.Lines;
+  self.FDGUIxFormsMemo3.clear;
+  self.FDGUIxFormsMemo4.clear;
+  FParserQuery.Columns := self.FDGUIxFormsMemo2.Lines.Text;
+  FParserQuery.Context := self.FDGUIxFormsMemo1.Lines;
 end;
 
 procedure TSDIAppForm.actSettingExecute(Sender: TObject);
@@ -136,9 +148,9 @@ begin
   showStatus(S);
 end;
 
-procedure TSDIAppForm.doOnValidLine(const S: string);
+procedure TSDIAppForm.doResultLine(const S: string);
 begin
-  showLog(S);
+  showResult(S);
   showStatus(S);
 end;
 
@@ -155,6 +167,11 @@ end;
 procedure TSDIAppForm.showLog(const S: string);
 begin
   self.FDGUIxFormsMemo4.Lines.Add(S);
+end;
+
+procedure TSDIAppForm.showResult(const S: string);
+begin
+  self.FDGUIxFormsMemo3.Lines.Add(S);
 end;
 
 procedure TSDIAppForm.showStatus(const S: string);
