@@ -190,7 +190,7 @@ var i: integer;
   S: string;
 begin
   Result := #13#10;
-  Result := Result + #13#10 + '  //查询条件';
+  Result := Result + '  //查询条件' + #13#10;
   S := '  <el-form :inline="true" :model="%s">';
   S := format(s, [FFormName]);
   Result := Result + S;
