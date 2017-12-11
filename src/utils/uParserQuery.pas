@@ -17,7 +17,7 @@ type
 
 implementation
 
-uses SysUtils, uCharSplit;
+uses SysUtils, uCharSplit, uIntfaceFull;
 
 { TCarBrand }
 
@@ -73,19 +73,29 @@ end;
 
 procedure TParserQuery.setContent(const strs: TStrings);
 
-  procedure doResponsePre();
+  procedure doResponsePre(const IntfaceFull: TIntfaceFull; const strsReq: TStrings);
+  var S: string;
   begin
     doOnResultLine('<template>');
     doOnResultLine('');
     doOnResultLine('<div>');
-    doOnResultLine('<el-button @click="query">search</el-button>');
+    //conditon
+    doOnResultLine(reqToConditionStr(IntfaceFull, strsReq));
+    //query button
     doOnResultLine('');
-    doOnResultLine('<el-table :data="data" border>');
+    doOnResultLine('  //查询按钮');
+    doOnResultLine('  <el-button @click="query">查询</el-button>');
     doOnResultLine('');
-    doOnResultLine('    <el-table-column label="xxx" align="center">');
+    doOnResultLine('  //表格数据');
+    doOnResultLine('  <el-table :data="data" border>');
+    doOnResultLine('');
+    S := '      <el-table-column label="%s" align="center">';
+    S := format(S, [IntfaceFull.Name]);
+    doOnResultLine(S);
   end;
 
-  procedure doResponseEnd(const method, url: string);
+  procedure doResponseEnd(const IntfaceFull: TIntfaceFull;
+      const strReqVar, strReqParam: String);
     const SCRIPT_= '' + #13#10 +
 '<script>' + #13#10 +
 'import axios from "axios";' + #13#10 +
@@ -98,6 +108,7 @@ procedure TParserQuery.setContent(const strs: TStrings);
 '' + #13#10 +
 '                }' + #13#10 +
 '            ],' + #13#10 +
+'            %s' + #13#10 +
 '        }' + #13#10 +
 '    },' + #13#10 +
 '' + #13#10 +
@@ -105,7 +116,7 @@ procedure TParserQuery.setContent(const strs: TStrings);
 '        query(){' + #13#10 +
 '            axios.%s("%s",{' + #13#10 +
 '                params:{' + #13#10 +
-'//                    carBrandName: this.carBrandName' + #13#10 +
+'                  %s' + #13#10 +
 '                }' + #13#10 +
 '            }).then(res=>{' + #13#10 +
 '                if(res.data.success){' + #13#10 +
@@ -128,12 +139,13 @@ procedure TParserQuery.setContent(const strs: TStrings);
 
     function getScriptTag(): string;
     begin
-      Result := format(SCRIPT_, [method, url]);
+      Result := format(SCRIPT_, [strReqVar, IntfaceFull.Method,
+        IntfaceFull.Url, strReqParam]);
     end;
   begin
-    doOnResultLine('    </el-table-column>');
+    doOnResultLine('      </el-table-column>');
     doOnResultLine('');
-    doOnResultLine('</el-table>');
+    doOnResultLine('  </el-table>');
 
     doOnResultLine('');
 
@@ -149,8 +161,8 @@ procedure TParserQuery.setContent(const strs: TStrings);
 
   procedure doResponseStrs(const strsResp: TStrings);
     function getElTable(const key, value: string): string;
-    const EE1='      <el-table-column label="%s" prop="%s" align="left"></el-table-column>';
-    const EE2='      <el-table-column label="%s" prop="%s" %s align="left"></el-table-column>';
+    const EE1='        <el-table-column label="%s" prop="%s" align="left"></el-table-column>';
+    const EE2='        <el-table-column label="%s" prop="%s" %s align="left"></el-table-column>';
     var ext: string;
     begin
       if not self.FMapProp.TryGetValue(value, ext) then begin
@@ -179,8 +191,7 @@ procedure TParserQuery.setContent(const strs: TStrings);
       Result := false;
       for J := 0 to strsResp.Count - 1 do begin
         s := strsResp[J];
-        if (S.StartsWith('变量名')) or
-            (S.StartsWith('data')) or
+        if (S.StartsWith('data')) or
             (S.StartsWith('total')) or
             (S.StartsWith('msg')) or
             (S.StartsWith('success')) then begin
@@ -207,28 +218,23 @@ procedure TParserQuery.setContent(const strs: TStrings);
     end;
   end;
 
-  procedure doAllResponse(const ss: TStrings; const method, url: string);
+  procedure doAllResponse(const IntfaceFull: TIntfaceFull;
+    const strsReq: TStrings; const strsResp: TStrings);
+  var strReqVar, strReqParam: string;
   begin
-    doResponsePre();
-    doResponseStrs(ss);
-    doResponseEnd(method, url);
-  end;
-
-  function getUrl(const S: string): string;
-  begin
-    if S.StartsWith('http://') then begin
-      Result := getRightStr(S, 'http://{{ip}}:{{port}}/');
-    end else begin
-      Result := S;
-    end;
+    doResponsePre(IntfaceFull, strsReq);
+    doResponseStrs(strsResp);
+    strReqVar := reqToVarStr(IntfaceFull, strsReq);
+    strReqParam := reqToParamStr(IntfaceFull, strsReq);
+    doResponseEnd(IntfaceFull, strReqVar, strReqParam);
   end;
 
 var i: integer;
-  line, S, method, url: string;
+  line, S: string;
   enumCtx: TEnumCtxType;
-  strsInfo, strsReq, strsResp: TStrings;
+  strsReq, strsResp: TStrings;
 begin
-  strsInfo := TStringList.Create;
+  FIntfaceFull.clear;
   strsReq := TStringList.Create;
   strsResp := TStringList.Create;
   try
@@ -257,19 +263,27 @@ begin
       end else begin
         case enumCtx of
           INFO: begin
-              strsInfo.Add(S);
+              if S.StartsWith('接口名称') then begin
+                FIntfaceFull.Name := getRightStr(S, ' ');
+              end;
               if S.StartsWith('请求类型') then begin
-                method := getRightStr(S, ' ');
+                FIntfaceFull.Method := getRightStr(S, ' ');
               end;
               if S.StartsWith('请求Url') then begin
-                url := getUrl(getRightStr(S, ' '));
+                FIntfaceFull.HttpUrl := getRightStr(S, ' ');
               end;
             end;
           REQUEST: begin
+              if (S.StartsWith('变量名')) then begin
+                continue;
+              end;
               strsReq.Add(S);
             end;
           RESPONSE: begin
-            strsResp.Add(S);
+              if (S.StartsWith('变量名')) then begin
+                continue;
+              end;
+              strsResp.Add(S);
             end;
           else begin
             continue;
@@ -277,10 +291,9 @@ begin
         end;
       end;
     end;
-    doAllResponse(strsResp, method, url);
+    doAllResponse(FIntfaceFull, strsReq, strsResp);
     doOnLine('response end.');
   finally
-    strsInfo.Free;
     strsReq.Free;
     strsResp.Free;
   end;
